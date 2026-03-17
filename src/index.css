@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  
+  --color-tactical-bg: #050505;
+  --color-tactical-panel: #121212;
+  --color-tactical-accent: #ff2e2e;
+  --color-tactical-warm: #ff8c00;
+}
+
+@layer base {
+  body {
+    @apply bg-tactical-bg text-white font-sans;
+  }
+}
+
+.tactical-card {
+  @apply bg-tactical-panel text-white rounded-xl p-6 shadow-2xl border border-white/5;
+}
+
+.neon-glow {
+  box-shadow: 0 0 20px rgba(255, 46, 46, 0.4);
+}
+
+.neon-border {
+  @apply border-tactical-accent/40;
+}
