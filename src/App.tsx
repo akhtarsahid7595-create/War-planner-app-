@@ -29,6 +29,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from './contexts/AuthContext';
 import { Login } from './components/Login';
+import { OnboardingGuide } from './components/OnboardingGuide';
 import { db } from './firebase';
 import { doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from './firebaseUtils';
@@ -114,6 +115,7 @@ export default function App() {
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [showCoachModal, setShowCoachModal] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const { user, loading, logout } = useAuth();
 
@@ -152,6 +154,9 @@ export default function App() {
         if (data.enemyNote) setEnemyNote(data.enemyNote);
         if (data.winner) setWinner(data.winner);
         if (data.history) setHistory(data.history);
+        if (data.hasSeenOnboarding === false) {
+          setShowOnboarding(true);
+        }
       } else {
         // Initialize for new user
         setWarTasks([
@@ -192,6 +197,7 @@ export default function App() {
         setEnemyNote('');
         setWinner(null);
         setHistory({});
+        setShowOnboarding(true);
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, path);
@@ -375,6 +381,17 @@ export default function App() {
       ...b,
       items: b.items.map(i => i.id === itemId ? { ...i, done: !i.done } : i)
     } : b));
+  };
+
+  const handleOnboardingComplete = async () => {
+    setShowOnboarding(false);
+    if (!user) return;
+    const path = `userProgress/${user.id}`;
+    try {
+      await setDoc(doc(db, path), { hasSeenOnboarding: true }, { merge: true });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, path);
+    }
   };
 
   const renderToday = () => (
@@ -752,6 +769,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen pb-24 max-w-md mx-auto px-4 pt-8">
+      <AnimatePresence>
+        {showOnboarding && <OnboardingGuide onComplete={handleOnboardingComplete} />}
+      </AnimatePresence>
       <AnimatePresence mode="wait">
         {currentScreen === 'today' && renderToday()}
         {currentScreen === 'week' && renderWeek()}
