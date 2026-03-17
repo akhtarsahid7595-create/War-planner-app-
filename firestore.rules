@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidUserProgress(data) {
+      return hasOnlyAllowedFields(['warTasks', 'blocks', 'enemyNote', 'winner', 'history', 'updatedAt']) &&
+             (data.warTasks is list) &&
+             (data.blocks is list) &&
+             (data.enemyNote is string) &&
+             (data.winner == null || data.winner is string) &&
+             (data.history is map) &&
+             (data.updatedAt is timestamp || data.updatedAt is string);
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+    match /userProgress/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUserProgress(request.resource.data);
+      allow update: if isOwner(userId) && isValidUserProgress(request.resource.data);
+      allow delete: if isOwner(userId);
+    }
+    
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

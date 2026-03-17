@@ -10,7 +10,7 @@ export const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState('');
-  const { login, signup } = useAuth();
+  const { login, signup, loginWithGoogle } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,6 +21,15 @@ export const Login: React.FC = () => {
       } else {
         await signup(email, password, name);
       }
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError('');
+    try {
+      await loginWithGoogle();
     } catch (err: any) {
       setError(err.message);
     }
@@ -117,6 +126,22 @@ export const Login: React.FC = () => {
               <ArrowRight className="w-5 h-5" />
             </button>
           </form>
+
+          <div className="mt-4 flex flex-col gap-3">
+            <div className="relative flex items-center py-2">
+              <div className="flex-grow border-t border-white/10"></div>
+              <span className="flex-shrink mx-4 text-[10px] uppercase font-bold text-white/20">OR</span>
+              <div className="flex-grow border-t border-white/10"></div>
+            </div>
+
+            <button 
+              onClick={handleGoogleLogin}
+              className="w-full bg-white/5 border border-white/10 text-white font-display font-bold uppercase py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-white/10 transition-all"
+            >
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-4 h-4" alt="Google" />
+              Continue with Google
+            </button>
+          </div>
 
           <div className="mt-6 text-center">
             <button 

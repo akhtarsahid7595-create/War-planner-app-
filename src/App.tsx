@@ -29,6 +29,9 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from './contexts/AuthContext';
 import { Login } from './components/Login';
+import { db } from './firebase';
+import { doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from './firebaseUtils';
 
 // --- Types ---
 interface WarTask {
@@ -126,50 +129,6 @@ export default function App() {
 
   // Persistence Logic
   useEffect(() => {
-    const loadUserData = async () => {
-      if (!user) return;
-      
-      try {
-        const response = await fetch('/api/user/progress');
-        if (response.ok) {
-          const data = await response.json();
-          if (Object.keys(data).length > 0) {
-            if (data.warTasks) setWarTasks(data.warTasks);
-            if (data.blocks) setBlocks(data.blocks);
-            if (data.enemyNote) setEnemyNote(data.enemyNote);
-            if (data.winner) setWinner(data.winner);
-            if (data.history) setHistory(data.history);
-            return; // Successfully loaded from server
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load user data from server:", err);
-      }
-
-      // Fallback to localStorage if server fails or is empty
-      const savedData = localStorage.getItem(`mindset_war_data_${user.id}`);
-      if (savedData) {
-        const parsed = JSON.parse(savedData);
-        if (parsed.warTasks) setWarTasks(parsed.warTasks);
-        if (parsed.blocks) setBlocks(parsed.blocks);
-        if (parsed.enemyNote) setEnemyNote(parsed.enemyNote);
-        if (parsed.winner) setWinner(parsed.winner);
-        if (parsed.history) setHistory(parsed.history);
-      } else {
-        // Reset to defaults for new user session
-        setWarTasks([
-          { id: '1', title: '', completed: false, category: 'General' },
-          { id: '2', title: '', completed: false, category: 'General' },
-          { id: '3', title: '', completed: false, category: 'General' },
-        ]);
-        setBlocks([]);
-        setEnemyNote('');
-        setWinner(null);
-      }
-    };
-
-    loadUserData();
-
     if (!user) {
       // Clear state on logout
       setWarTasks([
@@ -181,11 +140,66 @@ export default function App() {
       setEnemyNote('');
       setWinner(null);
       setHistory({});
+      return;
     }
 
+    const path = `userProgress/${user.id}`;
+    const unsubscribe = onSnapshot(doc(db, path), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data.warTasks) setWarTasks(data.warTasks);
+        if (data.blocks) setBlocks(data.blocks);
+        if (data.enemyNote) setEnemyNote(data.enemyNote);
+        if (data.winner) setWinner(data.winner);
+        if (data.history) setHistory(data.history);
+      } else {
+        // Initialize for new user
+        setWarTasks([
+          { id: '1', title: '', completed: false, category: 'General' },
+          { id: '2', title: '', completed: false, category: 'General' },
+          { id: '3', title: '', completed: false, category: 'General' },
+        ]);
+        setBlocks([
+          { 
+            id: 'command', 
+            title: 'Command Block (Morning)', 
+            isOpen: true,
+            items: [
+              { id: 'c1', label: 'Wake on time', done: false },
+              { id: 'c2', label: 'No phone first 30 mins', done: false },
+              { id: 'c3', label: 'Morning ritual', done: false },
+            ]
+          },
+          { 
+            id: 'battle', 
+            title: 'Battle Block (Deep Work)', 
+            isOpen: false,
+            items: [
+              { id: 'b1', label: 'Deep work session', done: false },
+            ]
+          },
+          { 
+            id: 'recovery', 
+            title: 'Recovery Block (Night)', 
+            isOpen: false,
+            items: [
+              { id: 'r1', label: 'Movement/Workout', done: false },
+              { id: 'r2', label: 'Shutdown routine', done: false },
+              { id: 'r3', label: 'Sleep prep', done: false },
+            ]
+          },
+        ]);
+        setEnemyNote('');
+        setWinner(null);
+        setHistory({});
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, path);
+    });
+
     // Timer specific loading
-    const savedTarget = localStorage.getItem(`war_timer_target_${user?.id}`);
-    const savedTaskId = localStorage.getItem(`war_timer_task_id_${user?.id}`);
+    const savedTarget = localStorage.getItem(`war_timer_target_${user.id}`);
+    const savedTaskId = localStorage.getItem(`war_timer_task_id_${user.id}`);
     if (savedTarget && savedTaskId) {
       const target = parseInt(savedTarget);
       const remaining = Math.max(0, Math.floor((target - Date.now()) / 1000));
@@ -196,6 +210,8 @@ export default function App() {
         setTimeLeft(remaining);
       }
     }
+
+    return () => unsubscribe();
   }, [user]);
 
   useEffect(() => {
@@ -206,26 +222,24 @@ export default function App() {
       blocks,
       enemyNote,
       winner,
-      history
+      history,
+      updatedAt: serverTimestamp()
     };
     
     // Save to localStorage (user-specific key)
     localStorage.setItem(`mindset_war_data_${user.id}`, JSON.stringify(dataToSave));
 
-    // Save to server
-    const syncWithServer = async () => {
+    // Save to Firestore
+    const syncWithFirestore = async () => {
+      const path = `userProgress/${user.id}`;
       try {
-        await fetch('/api/user/progress', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(dataToSave)
-        });
+        await setDoc(doc(db, path), dataToSave, { merge: true });
       } catch (err) {
-        console.error("Failed to sync data with server:", err);
+        handleFirestoreError(err, OperationType.WRITE, path);
       }
     };
 
-    const timeoutId = setTimeout(syncWithServer, 1000); // Debounce sync
+    const timeoutId = setTimeout(syncWithFirestore, 1000); // Debounce sync
     return () => clearTimeout(timeoutId);
   }, [warTasks, blocks, enemyNote, winner, history, user]);
 

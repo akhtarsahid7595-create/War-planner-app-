@@ -1,0 +1,55 @@
+{
+  "entities": {
+    "UserProgress": {
+      "title": "User Progress",
+      "description": "Tactical data and progress for a specific user.",
+      "type": "object",
+      "properties": {
+        "warTasks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "completed": { "type": "boolean" },
+              "category": { "type": "string" }
+            }
+          }
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "isOpen": { "type": "boolean" },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "label": { "type": "string" },
+                    "done": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "enemyNote": { "type": "string" },
+        "winner": { "type": "string" },
+        "history": { "type": "object" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "/userProgress/{userId}": {
+      "schema": "UserProgress",
+      "description": "Stores tactical progress for each user."
+    }
+  }
+}
